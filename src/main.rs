@@ -63,6 +63,24 @@ impl Card {
             repetition_count: 0,
         }
     }
+
+    fn upgrade(&mut self) {
+        self.updated_at = Utc::now();
+        self.level = match &self.level {
+            Level::A => Level::B,
+            Level::B => Level::C,
+            Level::C => Level::D,
+            Level::D => Level::E,
+            Level::E => Level::E,
+        };
+        self.repetition_count += 1;
+    }
+
+    fn downgrade(&mut self) {
+        self.updated_at = Utc::now();
+        self.level = Level::A;
+        self.repetition_count += 1;
+    }
 }
 
 fn main() {
@@ -82,6 +100,7 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::{thread, time};
 
     fn create_user(name: String) -> User {
         User::new(name, Lang::FR, Lang::EN)
@@ -109,12 +128,50 @@ mod tests {
         assert_eq!(card.repetition_count, 0);
     }
 
+    fn create_apple_card() -> Card {
+        Card::new(String::from("apple"), String::from("pomme"))
+    }
+
+    fn wait() {
+        thread::sleep(time::Duration::from_millis(200));
+    }
+
     #[test]
     fn test_add_card_to_user() {
         let mut user = create_user(String::from("Julien"));
-        let card = Card::new(String::from("apple"), String::from("pomme"));
+        let card = create_apple_card();
         user.add_card(card);
 
         assert_eq!(user.cards.len(), 1);
+    }
+
+    #[test]
+    fn test_word_revision_success() {
+        let mut card = create_apple_card();
+        let updated_at = card.created_at;
+        wait();
+
+        card.upgrade();
+
+        assert_eq!(card.level, Level::B);
+        assert_eq!(card.repetition_count, 1);
+        assert_ne!(card.updated_at, updated_at);
+    }
+
+    #[test]
+    fn test_word_revision_failed() {
+        let mut card = create_apple_card();
+        let updated_at = card.created_at;
+        wait();
+
+        card.upgrade();
+
+        assert_eq!(card.level, Level::B);
+
+        card.downgrade();
+
+        assert_eq!(card.level, Level::A);
+        assert_eq!(card.repetition_count, 2);
+        assert_ne!(card.updated_at, updated_at);
     }
 }
