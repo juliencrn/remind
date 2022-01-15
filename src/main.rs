@@ -15,7 +15,7 @@ struct User {
 struct Card {
     input_word: String,  // from learned lang
     translation: String, // to spoken lang
-    level: Level,
+    level: usize,
     created_at: DateTime<Utc>,
     updated_at: DateTime<Utc>,
     repetition_count: u32,
@@ -25,15 +25,6 @@ struct Card {
 enum Lang {
     EN,
     FR,
-}
-
-#[derive(Debug, PartialEq)]
-enum Level {
-    A,
-    B,
-    C,
-    D,
-    E,
 }
 
 impl User {
@@ -57,7 +48,7 @@ impl Card {
         Card {
             input_word,
             translation,
-            level: Level::A,
+            level: 0,
             created_at: now,
             updated_at: now,
             repetition_count: 0,
@@ -66,19 +57,13 @@ impl Card {
 
     fn upgrade(&mut self) {
         self.updated_at = Utc::now();
-        self.level = match &self.level {
-            Level::A => Level::B,
-            Level::B => Level::C,
-            Level::C => Level::D,
-            Level::D => Level::E,
-            Level::E => Level::E,
-        };
+        self.level += 1;
         self.repetition_count += 1;
     }
 
     fn downgrade(&mut self) {
         self.updated_at = Utc::now();
-        self.level = Level::A;
+        self.level = 0;
         self.repetition_count += 1;
     }
 }
@@ -124,7 +109,7 @@ mod tests {
 
         assert_eq!(card.input_word, String::from(learn));
         assert_eq!(card.translation, String::from(translation));
-        assert_eq!(card.level, Level::A);
+        assert_eq!(card.level, 0);
         assert_eq!(card.repetition_count, 0);
     }
 
@@ -153,7 +138,7 @@ mod tests {
 
         card.upgrade();
 
-        assert_eq!(card.level, Level::B);
+        assert_eq!(card.level, 1);
         assert_eq!(card.repetition_count, 1);
         assert_ne!(card.updated_at, updated_at);
     }
@@ -166,11 +151,11 @@ mod tests {
 
         card.upgrade();
 
-        assert_eq!(card.level, Level::B);
+        assert_eq!(card.level, 1);
 
         card.downgrade();
 
-        assert_eq!(card.level, Level::A);
+        assert_eq!(card.level, 0);
         assert_eq!(card.repetition_count, 2);
         assert_ne!(card.updated_at, updated_at);
     }
