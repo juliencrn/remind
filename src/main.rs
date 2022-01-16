@@ -1,4 +1,7 @@
 use chrono::prelude::*;
+use std::convert::TryFrom;
+
+const DAY: u64 = 24 * 60 * 60 * 1000;
 
 // Each user can choose its language pair (speak, learn) and own its word card collection.
 #[derive(Debug)]
@@ -27,6 +30,14 @@ enum Lang {
     FR,
 }
 
+pub fn to_timestamp(date: &DateTime<Utc>) -> u64 {
+    u64::try_from(date.timestamp()).unwrap()
+}
+
+pub fn from_timestamp(ts: u64) -> DateTime<Utc> {
+    Utc.timestamp(i64::try_from(ts).unwrap(), 0)
+}
+
 impl User {
     fn new(name: String, speak: Lang, learn: Lang) -> User {
         User {
@@ -39,6 +50,19 @@ impl User {
 
     fn add_card(&mut self, card: Card) {
         self.cards.push(card);
+    }
+
+    fn get_revisable_cards(&self) -> Vec<&Card> {
+        let mut revisable_cards: Vec<&Card> = vec![];
+        let now_ts = to_timestamp(&Utc::now());
+
+        for card in self.cards.iter() {
+            if now_ts >= card.get_scheduled_date_ts() {
+                revisable_cards.push(card);
+            }
+        }
+
+        revisable_cards
     }
 }
 
@@ -66,6 +90,18 @@ impl Card {
         self.level = 0;
         self.repetition_count += 1;
     }
+
+    fn get_scheduled_date_ts(&self) -> u64 {
+        let day_count: u64 = match self.level {
+            0 => 0,
+            1 => 1,
+            2 => 2,
+            3 => 5,
+            4 => 14,
+            _ => 28,
+        };
+        to_timestamp(&self.updated_at) + (day_count * DAY)
+    }
 }
 
 fn main() {
@@ -79,7 +115,10 @@ fn main() {
     julien.add_card(julien_s_card_2);
     julien.add_card(julien_s_card_3);
 
+    let to_learn = julien.get_revisable_cards();
+
     println!("Client julien: {:#?}", julien);
+    println!("Revisable cards: {:#?}", to_learn);
 }
 
 #[cfg(test)]
@@ -116,9 +155,12 @@ mod tests {
     fn create_apple_card() -> Card {
         Card::new(String::from("apple"), String::from("pomme"))
     }
+    fn create_beach_card() -> Card {
+        Card::new(String::from("beach"), String::from("plage"))
+    }
 
     fn wait() {
-        thread::sleep(time::Duration::from_millis(200));
+        thread::sleep(time::Duration::from_millis(10));
     }
 
     #[test]
@@ -158,5 +200,22 @@ mod tests {
         assert_eq!(card.level, 0);
         assert_eq!(card.repetition_count, 2);
         assert_ne!(card.updated_at, updated_at);
+    }
+
+    #[test]
+    fn test_get_revision_list() {
+        let mut user = create_user(String::from("julien"));
+        let mut card1 = create_apple_card();
+        let card2 = create_beach_card();
+
+        card1.upgrade();
+
+        user.add_card(card1);
+        user.add_card(card2);
+
+        println!("{:#?}", user);
+
+        assert_eq!(user.cards.len(), 2);
+        assert_eq!(user.get_revisable_cards().len(), 1);
     }
 }
