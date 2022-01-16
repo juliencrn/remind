@@ -1,7 +1,5 @@
 use chrono::prelude::*;
 
-use crate::date::{to_timestamp, DAY};
-
 // A card means a wanted to learn word, with its translation.
 // Then with training session, it's upgraded (saved in human memory)
 #[derive(Debug)]
@@ -14,41 +12,43 @@ pub struct Card {
     pub repetition_count: u32,
 }
 
+#[derive(Debug)]
+pub enum CardRes {
+    Success,
+    Failure,
+}
+
 impl Card {
     pub fn new(input_word: String, translation: String) -> Card {
-        let now = Utc::now();
         Card {
             input_word,
             translation,
             level: 0,
-            created_at: now,
-            updated_at: now,
+            created_at: Utc::now(),
+            updated_at: Utc::now(),
             repetition_count: 0,
         }
     }
 
-    pub fn upgrade(&mut self) {
+    pub fn revise_card(&mut self, response: CardRes) {
         self.updated_at = Utc::now();
-        self.level += 1;
         self.repetition_count += 1;
+        self.level = match response {
+            CardRes::Success => self.level + 1,
+            CardRes::Failure => 0,
+        };
     }
 
-    pub fn downgrade(&mut self) {
-        self.updated_at = Utc::now();
-        self.level = 0;
-        self.repetition_count += 1;
-    }
-
-    pub fn get_scheduled_date_ts(&self) -> u64 {
-        let day_count: u64 = match self.level {
+    pub fn get_scheduled_days(&self) -> usize {
+        match self.level {
             0 => 0,
             1 => 1,
             2 => 2,
             3 => 5,
             4 => 14,
-            _ => 28,
-        };
-        to_timestamp(&self.updated_at) + (day_count * DAY)
+            5 => 28,
+            _ => 54,
+        }
     }
 }
 
@@ -76,32 +76,22 @@ mod tests {
     }
 
     #[test]
-    fn test_word_revision_success() {
+    fn test_card_revision() {
         let mut card = create_card();
         let updated_at = card.created_at;
         wait();
 
-        card.upgrade();
+        card.revise_card(CardRes::Success);
 
+        // well reminded upgrades level
         assert_eq!(card.level, 1);
         assert_eq!(card.repetition_count, 1);
         assert_ne!(card.updated_at, updated_at);
-    }
 
-    #[test]
-    fn test_word_revision_failed() {
-        let mut card = create_card();
-        let updated_at = card.created_at;
-        wait();
+        card.revise_card(CardRes::Failure);
 
-        card.upgrade();
-
-        assert_eq!(card.level, 1);
-
-        card.downgrade();
-
+        // forgot card downgrade level
         assert_eq!(card.level, 0);
         assert_eq!(card.repetition_count, 2);
-        assert_ne!(card.updated_at, updated_at);
     }
 }

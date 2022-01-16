@@ -4,7 +4,7 @@ mod card;
 mod date;
 
 use card::Card;
-use date::to_timestamp;
+use date::{to_timestamp, DAY};
 
 // Each user can choose its language pair (speak, learn) and own its word card collection.
 #[derive(Debug)]
@@ -40,7 +40,10 @@ impl User {
         let now_ts = to_timestamp(&Utc::now());
 
         for card in self.cards.iter() {
-            if now_ts >= card.get_scheduled_date_ts() {
+            let days_ts = (card.get_scheduled_days() as u64) * DAY;
+            let next_revision_ts = to_timestamp(&card.updated_at) + days_ts;
+
+            if now_ts >= next_revision_ts {
                 revisable_cards.push(card);
             }
         }
@@ -69,6 +72,7 @@ fn main() {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use card::{Card, CardRes};
 
     fn create_user() -> User {
         User::new(String::from("Julien"), Lang::FR, Lang::EN)
@@ -106,7 +110,7 @@ mod tests {
         let mut card1 = create_apple_card();
         let card2 = create_beach_card();
 
-        card1.upgrade();
+        card1.revise_card(CardRes::Success);
 
         user.add_card(card1);
         user.add_card(card2);
